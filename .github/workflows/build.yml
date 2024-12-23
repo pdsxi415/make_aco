@@ -1,0 +1,73 @@
+name: Build and Deploy make_aco
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REPO_URL: https://git.dogni.work/xiaohei/make_aco.git
+
+jobs:
+  build:
+    name: Build make_aco
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 克隆代码仓库
+        run: |
+          echo "正在克隆代码仓库..."
+          git clone $REPO_URL $GITHUB_WORKSPACE  # 默认克隆到当前工作目录          
+
+      - name: 检查 Node.js 版本
+        run: |
+          echo "当前使用的 Node.js 版本是："
+          node -v
+          npm -v          
+
+      - name: 设置 NPM 镜像为阿里云
+        run: |
+          echo "正在设置 NPM 镜像源为阿里云..."
+          npm config set registry https://registry.npm.taobao.org          
+
+      - name: 安装依赖
+        run: |
+          echo "正在安装依赖..."
+          cd $GITHUB_WORKSPACE
+          npm install          
+
+      - name: 构建项目
+        run: |
+          echo "正在构建网站..."
+          npm run build
+          echo "构建完成，列出 dist 目录内容："
+          ls -l $GITHUB_WORKSPACE/dist  # 确认 dist 目录内容
+          ls
+          pwd          
+
+  deploy:
+    name: Deploy make_aco
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - name: 安装 lftp
+        run: |
+          echo "安装 lftp 工具..."
+          sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list
+          apt-get update && apt-get install -y lftp          
+      - name: 📂 Sync files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: 10.0.4.14
+          username: ubuntu
+          password: wxx2936554@
+          local-dir: ./
+          server-dir: ./
+          log-level: verbose    
+
+      - name: 确认上传完成
+        run: |
+          echo "确认上传文件是否成功..."
+          lftp -c "
+          open -u $FTP_USER,$FTP_PASS $FTP_HOST;
+          ls $FTP_TARGET_DIR;
+          bye;"          
